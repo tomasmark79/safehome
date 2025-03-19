@@ -8,6 +8,6 @@ Environment="LOGDIR=/home/tomas/logs/lvm-backup"
 ExecStartPre=/bin/sh -c 'mkdir -p ${LOGDIR}'
 # Smazat logy starší než 30 dní
 ExecStartPre=/bin/sh -c 'find ${LOGDIR} -type f -name "backup_*.log" -mtime +30 -delete'
-ExecStart=/bin/sh -c '/home/tomas/dev/bash/markware-backup-scripts/lvm-backup.sh rsync_notimestamp lv_home >> ${LOGDIR}/backup_$(date +%%Y-%%m-%%d_%%H-%%M-%%S).log 2>&1'
+ExecStart=/bin/sh -c '/home/tomas/dev/bash/safehome/lvm-backup.sh rsync_notimestamp lv_home >> ${LOGDIR}/backup_$(date +%%Y-%%m-%%d_%%H-%%M-%%S).log 2>&1'
 StandardOutput=null
 StandardError=null

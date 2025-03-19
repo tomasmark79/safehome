@@ -1,0 +1,11 @@
+[Unit]
+Description=Spouštění LVM zálohy každé ráno a večer
+
+[Timer]
+OnCalendar=*-*-* 08:05:00
+OnCalendar=*-*-* 18:55:00
+Persistent=true
+
+[Install]
+WantedBy=timers.target
+

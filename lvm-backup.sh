@@ -47,21 +47,21 @@ VOLUMES=("$@")
 
 log() {
   local MESSAGE="$1"
-  echo "$(date +"%Y-%m-%d %H:%M:%S") : ${MESSAGE}" | sudo tee -a "${LOG_FILE}" | logger -t lvm-backup
+  echo "$(date +"%Y-%m-%d %H:%M:%S") : ${MESSAGE}" | tee -a "${LOG_FILE}" | logger -t lvm-backup
 }
 
 cleanup() {
   if mountpoint -q "${MNT_DIR}"; then
     log "Unmounting snapshot ${SNAP_NAME}"
-    sudo umount "${MNT_DIR}" || log "Failed to unmount snapshot ${SNAP_NAME}"
+    umount "${MNT_DIR}" || log "Failed to unmount snapshot ${SNAP_NAME}"
   fi
 
-  if sudo lvdisplay "${SNAP_DEV}" &>/dev/null; then
+  if lvdisplay "${SNAP_DEV}" &>/dev/null; then
     log "Removing snapshot ${SNAP_NAME}"
-    sudo lvremove -y "${SNAP_DEV}" || log "Failed to remove snapshot ${SNAP_NAME}"
+    lvremove -y "${SNAP_DEV}" || log "Failed to remove snapshot ${SNAP_NAME}"
   fi
 
-  sudo rmdir "${MNT_DIR}" 2>/dev/null || true
+  rmdir "${MNT_DIR}" 2>/dev/null || true
 }
 
 trap cleanup EXIT
@@ -74,23 +74,23 @@ for VOL in "${VOLUMES[@]}"; do
   MNT_DIR="/mnt/${SNAP_NAME}"
 
   log "Creating snapshot for ${VOL}"
-  if ! sudo lvcreate -L "${SNAP_SIZE}" -s -n "${SNAP_NAME}" "${ORIG_DEV}"; then
+  if ! lvcreate -L "${SNAP_SIZE}" -s -n "${SNAP_NAME}" "${ORIG_DEV}"; then
     log "Failed to create snapshot for ${VOL}"
     exit 1
   fi
 
   log "Mounting snapshot ${SNAP_NAME}"
-  sudo mkdir -p "${MNT_DIR}"
-  if ! sudo mount "${SNAP_DEV}" "${MNT_DIR}"; then
+  mkdir -p "${MNT_DIR}"
+  if ! mount "${SNAP_DEV}" "${MNT_DIR}"; then
     log "Failed to mount snapshot ${SNAP_NAME}"
     exit 1
   fi
 
   if [ "${BACKUP_METHOD}" == "tar" ]; then
     log "Starting tar backup for ${VOL}"
-    EXCLUDE_ARGS=$(awk '{gsub(/\/$/, "/*", $0); print "--exclude=" $0}' "${EXCLUDED_ITEMS}" | xargs)
+    EXCLUDE_ARGS=$(awk '{gsub(/^\/+/, ""); print "--exclude=./" $0}' "${EXCLUDED_ITEMS}" | xargs)
     echo "EXCLUDE_ARGS: ${EXCLUDE_ARGS}"
-    if sudo tar cvpz "${EXCLUDE_ARGS}" --absolute-names "${MNT_DIR}/" | ssh -i ~/.ssh/id_rsa_backupagent -p ${SSH_PORT} ${SSH_USER}@${SSH_HOST} "cat > ${REMOTE_BASE_DIR}/${VOL}_${TIMESTAMP}.tar.gz"; then
+    if tar cvpz ${EXCLUDE_ARGS} -C "${MNT_DIR}" . | ssh -i ~/.ssh/id_rsa_backupagent -p ${SSH_PORT} ${SSH_USER}@${SSH_HOST} "cat > ${REMOTE_BASE_DIR}/${VOL}_${TIMESTAMP}.tar.gz"; then
       log "Tar backup completed successfully for ${VOL}"
     else
       log "Tar backup failed for ${VOL}"

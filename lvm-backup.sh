@@ -4,6 +4,12 @@
 
 # (c) Tomáš Mark 2025
 
+# Ensure the script is run as root
+if [ "$EUID" -ne 0 ]; then
+  echo "This script must be run as root. Re-running with sudo..."
+  exec sudo "$0" "$@"
+fi
+
 # example usage:
 # ./lvm-backup.sh rsync_notimestamp lv_home
 # ./lvm-backup.sh rsync lv_var

@@ -10,20 +10,22 @@ if [ "$EUID" -ne 0 ]; then
   exec sudo "$0" "$@"
 fi
 
-# example usage:
-# ./lvm-backup.sh rsync_notimestamp lv_home
-# ./lvm-backup.sh rsync lv_var
-# ./lvm-backup.sh tar lv_usr_local lv_root lv_var
-
 # excluded objects are defined in the file ./excluded-fs-objects.conf
-# the file should contain a list of directories to exclude from the backup
-# each directory should be on a separate line
+# space characters need to be escaped with a double quote ex. "Don'tbackup"
 # no trailing slashes are allowed
 # no trailing asterisks are allowed
-# space characters need to be escaped with a double quote ex. "Don'tbackup"
+
+# example usage:
 
 # rsync vytváří vždy nový adresář pro každou zálohu (uchovává historii záloh)
 # rsync_notimestamp přepisuje předchozí zálohu ve stejném adresáři (udržuje pouze nejnovější zálohu)
+# nepoužívat konečné lomítko!
+# ./lvm-backup.sh rsync_notimestamp lv_home
+# ./lvm-backup.sh rsync lv_var
+
+# tar používá RELATIVNÍ CESTY, aby správně fungoval exclude = nepoužívat konečné lomítko!
+# ./lvm-backup.sh tar lv_usr_local lv_root lv_var
+
 
 # Get the directory of the script
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"

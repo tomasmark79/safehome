@@ -1,0 +1,12 @@
+[Unit]
+Description=Safehome by DotName
+After=default.target
+
+[Service]
+Type=simple
+Environment="LOGDIR=/home/tomas/logs/safehome"
+ExecStartPre=/bin/sh -c 'mkdir -p ${LOGDIR}'
+ExecStartPre=/bin/sh -c 'find ${LOGDIR} -type f -name "safehome_*.log" -mtime +30 -delete'
+ExecStart=/bin/sh -c '/home/tomas/dev/bash/safehome/safehome.sh rsync_notimestamp lv_home >> ${LOGDIR}/safehome_$(date +%%Y-%%m-%%d_%%H-%%M-%%S).log 2>&1'
+StandardOutput=null
+StandardError=null

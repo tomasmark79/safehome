@@ -1,5 +1,5 @@
 [Unit]
-Description=Spouštění LVM zálohy každé ráno a večer
+Description=Safehome Timer
 
 [Timer]
 OnCalendar=*-*-* 08:05:00

@@ -10,21 +10,25 @@ if [ "$EUID" -ne 0 ]; then
   exec sudo "$0" "$@"
 fi
 
-# excluded objects are defined in the file ./excluded-fs-objects.conf
-# space characters need to be escaped with a double quote ex. "Don'tbackup"
-# no trailing slashes are allowed
-# no trailing asterisks are allowed
+# Excluded objects are defined in the file ./excluded-fs-objects.conf
+#  - space characters must be escaped with double quotes, e.g., "Do not backup"
+#  - no trailing slashes are allowed
+#  - no trailing asterisks are allowed
 
-# example usage:
+# Example usage:
 
-# rsync vytváří vždy nový adresář pro každou zálohu (uchovává historii záloh)
-# rsync_notimestamp přepisuje předchozí zálohu ve stejném adresáři (udržuje pouze nejnovější zálohu)
-# nepoužívat konečné lomítko!
-# ./lvm-backup.sh rsync_notimestamp lv_home
-# ./lvm-backup.sh rsync lv_var
+# rsync creates a new directory for each backup (keeps backup history)
+# ./safehome.sh rsync lv_var
 
-# tar používá RELATIVNÍ CESTY, aby správně fungoval exclude = nepoužívat konečné lomítko!
-# ./lvm-backup.sh tar lv_usr_local lv_root lv_var
+# rsync_notimestamp overwrites the previous backup in the same directory (keeps only the latest backup)
+# ./safehome.sh rsync_notimestamp lv_home
+
+# tar uses RELATIVE PATHS to work correctly with exclude = do not use trailing slashes!
+# ./safehome.sh tar lv_usr_local lv_root lv_var
+
+# tar creates a new file for each backup (keeps backup history)
+# ./safehome folder_tar
+
 
 
 # Get the directory of the script
@@ -43,7 +47,7 @@ SSH_HOST="192.168.79.11"
 REMOTE_BASE_DIR="/volume1/homebackup/bluediamond"
 
 # Read parameters
-BACKUP_METHOD=${1:-rsync_notimestamp}  # Default to rsync if no parameter is provided
+BACKUP_METHOD=${1:-rsync_notimestamp} # Default to rsync if no parameter is provided
 shift
 VOLUMES=("$@")
 
@@ -75,6 +79,40 @@ for VOL in "${VOLUMES[@]}"; do
   ORIG_DEV="/dev/${VG_NAME}/${VOL}"
   MNT_DIR="/mnt/${SNAP_NAME}"
 
+  # No snapshot backup
+  if [[ "${BACKUP_METHOD}" == folder* ]]; then
+    SRC_DIR="${VOL}"
+    if [ ! -d "${SRC_DIR}" ]; then
+      log "Source directory ${SRC_DIR} does not exist"
+      exit 1
+    fi
+
+    if [ "${BACKUP_METHOD}" == "folder_tar" ]; then
+      log "Starting tar backup for folder ${SRC_DIR}"
+      EXCLUDE_ARGS=$(awk '{gsub(/^\/+/, ""); print "--exclude=./" $0}' "${EXCLUDED_ITEMS}" | xargs)
+      echo "EXCLUDE_ARGS: ${EXCLUDE_ARGS}"
+      if tar cvpz ${EXCLUDE_ARGS} -C "${SRC_DIR}" . | ssh -i ~/.ssh/id_rsa_backupagent -p ${SSH_PORT} ${SSH_USER}@${SSH_HOST} "cat > ${REMOTE_BASE_DIR}/$(basename "${SRC_DIR}")_${TIMESTAMP}.tar.gz"; then
+        log "Tar backup completed successfully for folder ${SRC_DIR}"
+      else
+        log "Tar backup failed for folder ${SRC_DIR}"
+      fi
+    else
+      log "Starting rsync backup for folder ${SRC_DIR}"
+      if rsync -az \
+        --exclude-from="${EXCLUDED_ITEMS}" \
+        -e "ssh -p ${SSH_PORT}" \
+        -v \
+        "${SRC_DIR}/" \
+        "${SSH_USER}@${SSH_HOST}:${REMOTE_BASE_DIR}/$(basename "${SRC_DIR}")/"; then
+        log "Rsync backup completed successfully for folder ${SRC_DIR}"
+      else
+        log "Rsync backup failed for folder ${SRC_DIR}"
+      fi
+    fi
+    continue
+  fi
+
+  # Snapshot backup
   log "Creating snapshot for ${VOL}"
   if ! lvcreate -L "${SNAP_SIZE}" -s -n "${SNAP_NAME}" "${ORIG_DEV}"; then
     log "Failed to create snapshot for ${VOL}"
@@ -100,11 +138,11 @@ for VOL in "${VOLUMES[@]}"; do
   elif [ "${BACKUP_METHOD}" == "rsync_notimestamp" ]; then
     log "Starting rsync_raw for ${VOL}"
     if rsync -az \
-        --exclude-from="${EXCLUDED_ITEMS}" \
-        -e "ssh -p ${SSH_PORT}" \
-        -v \
-        "${MNT_DIR}/" \
-        "${SSH_USER}@${SSH_HOST}:${REMOTE_BASE_DIR}/${VOL}/"; then
+      --exclude-from="${EXCLUDED_ITEMS}" \
+      -e "ssh -p ${SSH_PORT}" \
+      -v \
+      "${MNT_DIR}/" \
+      "${SSH_USER}@${SSH_HOST}:${REMOTE_BASE_DIR}/${VOL}/"; then
       log "Rsync_raw backup completed successfully for ${VOL}"
     else
       log "Rsync_raw backup failed for ${VOL}"
@@ -112,11 +150,11 @@ for VOL in "${VOLUMES[@]}"; do
   elif [ "${BACKUP_METHOD}" == "rsync" ]; then
     log "Starting rsync for ${VOL}"
     if rsync -az \
-        --exclude-from="${EXCLUDED_ITEMS}" \
-        -e "ssh -p ${SSH_PORT}" \
-        -v \
-        "${MNT_DIR}/" \
-        "${SSH_USER}@${SSH_HOST}:${REMOTE_BASE_DIR}/${VOL}_${TIMESTAMP}/"; then
+      --exclude-from="${EXCLUDED_ITEMS}" \
+      -e "ssh -p ${SSH_PORT}" \
+      -v \
+      "${MNT_DIR}/" \
+      "${SSH_USER}@${SSH_HOST}:${REMOTE_BASE_DIR}/${VOL}_${TIMESTAMP}/"; then
       log "Rsync backup completed successfully for ${VOL}"
     else
       log "Rsync backup failed for ${VOL}"
@@ -124,7 +162,7 @@ for VOL in "${VOLUMES[@]}"; do
   fi
 
   log "Backup for ${VOL} completed successfully"
-  
+
   cleanup
 done
 

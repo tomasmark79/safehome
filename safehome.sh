@@ -38,13 +38,13 @@ set -euo pipefail
 
 # Default values
 VG_NAME="vg_main"
-SNAP_SIZE="10G"
+SNAP_SIZE="80G"
 LOG_FILE="/var/log/lvm-backup.log"
 EXCLUDED_ITEMS="${SCRIPT_DIR}/excluded-fs-objects.conf"
 SSH_PORT=7922
 SSH_USER="tomas"
 SSH_HOST="192.168.79.11"
-REMOTE_BASE_DIR="/volume1/homebackup/bluediamond"
+REMOTE_BASE_DIR="/volume1/homebackup/greendiamond"
 
 # Read parameters
 BACKUP_METHOD=${1:-rsync_notimestamp} # Default to rsync if no parameter is provided
